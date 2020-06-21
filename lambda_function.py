@@ -76,7 +76,7 @@ def lambda_handler(event, context):
     parts = dst[0].split('@')
     dst = parts[0].split('+')[1]
     dst = parse.unquote(dst)
-    if '@' not in dst:  # TODO: always append @kindle.com!
+    if '@' not in dst:
         dst += '@kindle.com'
     elif dst.split('@')[1] not in ALLOWED_DOMAINS:
         print('Disallowed destionation:\n', body)
