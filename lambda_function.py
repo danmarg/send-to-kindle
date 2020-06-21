@@ -42,15 +42,28 @@ def lambda_handler(event, context):
     attach = None
 
     if pdfs:
+        subj = 'convert'  # Convert to AZW.
+        author = 'Unknown Author'
         attach = pdfs[0]
     else:
         # Take just the first URL for now.
         art = Article(urls[0])
         art.download()
         art.parse()
+        # TODO: Newspaper3k parses the same author multiple times. Fix!
+        author = art.authors[0] if art.authors else ''
         if not subj:
-          subj = art.title
-        attach = MIMEText(art.html, 'html', 'utf-8')
+            subj = art.title
+        # Format text into HTML. This is crappy--it loses things like boldface
+        # and italics--and could be replaced with a library that does this
+        # better! Images would also be nice...
+        doc = '<html><body><h1>{}</h1><h3>{}</h3><h4>{}</h4><p>{}</p></body></html>'.format(
+                subj,
+                author,
+                art.publish_date.strftime('%c') if art.publish_date else '',
+                '</p><p>'.join(art.text.split('\n\n'))
+            )
+        attach = MIMEText(doc, 'html', 'utf-8')
         attach.add_header('Content-Disposition', 'attachment',
                 filename=subj + '.html')
         attach.add_header('Content-Type', 'text/html; charset=UTF-8')
@@ -73,7 +86,7 @@ def lambda_handler(event, context):
 
     msg = MIMEMultipart()
     msg['Subject'] = subj
-    msg['From'] = 'kindle@x.af0.net'
+    msg['From'] = '"' + author + '" <kindle@x.af0.net>'
     msg['To'] = dst
     msg.preamble = 'Multipart message.\n'
     msg.attach(attach)
