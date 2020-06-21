@@ -2,7 +2,8 @@ import boto3
 import email
 import json
 import re
-from base64 import b64decode
+import urllib
+from base64 import b64encode, b64decode
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from urllib import parse
@@ -13,6 +14,52 @@ RE = r'''((?:http|https)://(?:[\w_-]+(?:(?:\.[\w_-]+)+))(?:[\w.,@?^=%&:/~+#-]*[\
 
 # Allow list of manually-sent-to address domains, to avoid being a spam relay.
 ALLOWED_DOMAINS = ['af0.net', 'kindle.com']
+
+def fetch_and_format(url):
+    parts = []
+    art = Article(url)
+    art.download()
+    art.parse()
+    # Format text into HTML. This is crappy--it loses things like boldface
+    # and italics--and could be replaced with a library that does this
+    # better! Images would also be nice...
+    title = art.title
+    # TODO: Newspaper3k parses the same author multiple times. Fix!
+    author = art.authors[0] if art.authors else ''
+    publish_date = art.publish_date.strftime('%B %d %Y') if art.publish_date else ''
+    text = u'<p>' + u'</p><p>'.join(art.text.split('\n\n')) + u'</p>'
+    image = ''
+    if art.top_img:
+        with urllib.request.urlopen(art.top_img) as resp:
+            try:
+                ctype = resp.headers.get_content_type()
+                ext = ctype.split('/')[1]
+                raw = resp.read()
+                image = '<img src="data:' + ctype + ';base64,' + str(b64encode(raw), 'utf-8') + '"/>'
+            except Exception as e:
+                print(e)
+                pass
+
+    doc = f'''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html>
+    <head>
+    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <META name="author" content="{author}">
+    <META name="title" content="{title}">
+    </head>
+    <body><div>
+    <h1>{title}</h1>
+    <h3>{author}</h3>
+    <h4>{publish_date}</h4>
+    {image}
+    {text}
+    </body>
+    </html>'''
+    attach = MIMEText(doc, 'html', 'utf-8')
+    attach.add_header('Content-Disposition', 'attachment',
+            filename=title + '.html')
+    attach.add_header('Content-Type', 'text/html; charset=UTF-8')
+    parts.append(attach)
+    return parts
 
 def lambda_handler(event, context):
     rec = json.loads(event['Records'][0]['Sns']['Message'])
@@ -34,39 +81,14 @@ def lambda_handler(event, context):
         return
 
     subj = ''
-    for hdr in headers:
-        if hdr['name'] == 'Subject':
-            subj = hdr['value']
-            break
-
     attach = None
 
     if pdfs:
         subj = 'convert'  # Convert to AZW.
-        author = 'Unknown Author'
-        attach = pdfs[0]
+        attach = pdfs
     else:
-        # Take just the first URL for now.
-        art = Article(urls[0])
-        art.download()
-        art.parse()
-        # TODO: Newspaper3k parses the same author multiple times. Fix!
-        author = art.authors[0] if art.authors else ''
-        if not subj:
-            subj = art.title
-        # Format text into HTML. This is crappy--it loses things like boldface
-        # and italics--and could be replaced with a library that does this
-        # better! Images would also be nice...
-        doc = '<html><body><h1>{}</h1><h3>{}</h3><h4>{}</h4><p>{}</p></body></html>'.format(
-                subj,
-                author,
-                art.publish_date.strftime('%c') if art.publish_date else '',
-                '</p><p>'.join(art.text.split('\n\n'))
-            )
-        attach = MIMEText(doc, 'html', 'utf-8')
-        attach.add_header('Content-Disposition', 'attachment',
-                filename=subj + '.html')
-        attach.add_header('Content-Type', 'text/html; charset=UTF-8')
+        subj = ''
+        attach = fetch_and_format(urls[0])  # Take just the first URL.
 
     # Get the Kindle destination.
     print('Raw destination:', dst[0])
@@ -81,15 +103,16 @@ def lambda_handler(event, context):
     elif dst.split('@')[1] not in ALLOWED_DOMAINS:
         print('Disallowed destionation:\n', body)
 
-    print('Article:', art.url)
+    print('Article:', urls[0])
     print('Send to:', dst)
 
-    msg = MIMEMultipart()
+    msg = MIMEMultipart('related')
     msg['Subject'] = subj
-    msg['From'] = '"' + author + '" <kindle@x.af0.net>'
+    msg['From'] = '<kindle@x.af0.net>'
     msg['To'] = dst
     msg.preamble = 'Multipart message.\n'
-    msg.attach(attach)
+    for a in attach:
+      msg.attach(a)
 
 
     client = boto3.client('ses' )    
