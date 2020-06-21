@@ -11,6 +11,8 @@ from newspaper import Article
 
 RE = r'''((?:http|https)://(?:[\w_-]+(?:(?:\.[\w_-]+)+))(?:[\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?)'''
 
+# Allow list of manually-sent-to address domains, to avoid being a spam relay.
+ALLOWED_DOMAINS = ['af0.net', 'kindle.com']
 
 def lambda_handler(event, context):
     rec = json.loads(event['Records'][0]['Sns']['Message'])
@@ -32,30 +34,39 @@ def lambda_handler(event, context):
         return
 
     subj = ''
+    for hdr in headers:
+        if hdr['name'] == 'Subject':
+            subj = hdr['value']
+            break
+
     attach = None
 
     if pdfs:
-        for hdr in headers:
-            if hdr['name'] == 'Subject':
-                subj = hdr['value']
-                break
         attach = pdfs[0]
     else:
         # Take just the first URL for now.
         art = Article(urls[0])
         art.download()
         art.parse()
-        subj = art.title
-        attach = MIMEText(art.html)
-        attach.add_header('Content-Disposition', 'attachment')
+        if not subj:
+          subj = art.title
+        attach = MIMEText(art.html, 'html', 'utf-8')
+        attach.add_header('Content-Disposition', 'attachment',
+                filename=subj + '.html')
         attach.add_header('Content-Type', 'text/html; charset=UTF-8')
 
     # Get the Kindle destination.
+    print('Raw destination:', dst[0])
+    if '@' not in dst[0] or '+' not in dst[0]:
+        print('Unexpected message:\n', body)
+        return
     parts = dst[0].split('@')
     dst = parts[0].split('+')[1]
     dst = parse.unquote(dst)
     if '@' not in dst:  # TODO: always append @kindle.com!
         dst += '@kindle.com'
+    elif dst.split('@')[1] not in ALLOWED_DOMAINS:
+        print('Disallowed destionation:\n', body)
 
     print('Article:', art.url)
     print('Send to:', dst)
