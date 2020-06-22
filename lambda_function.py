@@ -15,8 +15,7 @@ RE = r'''((?:http|https)://(?:[\w_-]+(?:(?:\.[\w_-]+)+))(?:[\w.,@?^=%&:/~+#-]*[\
 # Allow list of manually-sent-to address domains, to avoid being a spam relay.
 ALLOWED_DOMAINS = ['af0.net', 'kindle.com']
 
-def fetch_and_format(url):
-    parts = []
+def fetch_and_format(url, fetch_img=True):
     art = Article(url)
     art.download()
     art.parse()
@@ -29,7 +28,7 @@ def fetch_and_format(url):
     publish_date = art.publish_date.strftime('%B %d %Y') if art.publish_date else ''
     text = u'<p>' + u'</p><p>'.join(art.text.split('\n\n')) + u'</p>'
     image = ''
-    if art.top_img:
+    if art.top_img and fetch_img:
         with urllib.request.urlopen(art.top_img) as resp:
             try:
                 ctype = resp.headers.get_content_type()
@@ -54,12 +53,14 @@ def fetch_and_format(url):
     {text}
     </body>
     </html>'''
-    attach = MIMEText(doc, 'html', 'utf-8')
+    return title, doc
+
+def html_as_mime_attachment(title, html):
+    attach = MIMEText(html, 'html', 'utf-8')
     attach.add_header('Content-Disposition', 'attachment',
             filename=title + '.html')
     attach.add_header('Content-Type', 'text/html; charset=UTF-8')
-    parts.append(attach)
-    return parts
+    return attach
 
 def lambda_handler(event, context):
     rec = json.loads(event['Records'][0]['Sns']['Message'])
@@ -88,7 +89,8 @@ def lambda_handler(event, context):
         attach = pdfs
     else:
         subj = ''
-        attach = fetch_and_format(urls[0])  # Take just the first URL.
+        title, html = fetch_and_format(urls[0])  # Take just the first URL.
+        attach = [html_as_mime_attachment(title, html)]
 
     # Get the Kindle destination.
     print('Raw destination:', dst[0])
