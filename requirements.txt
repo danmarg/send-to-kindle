@@ -1,1 +1,1 @@
-newspaper3k
+git+git://github.com/danmarg/newspaper.git
