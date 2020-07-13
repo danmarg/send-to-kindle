@@ -18,6 +18,7 @@ ALLOWED_DOMAINS = ['af0.net', 'kindle.com']
 def fetch_and_format(url, fetch_img=True):
     cfg = Config()
     cfg.keep_article_html = True
+    cfg.drop_text_node = lambda x: x in ('', 'Advertisement', 'advertisement')
     art = Article(url, config=cfg)
     art.download()
     art.parse()
