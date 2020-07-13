@@ -8,7 +8,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from urllib import parse
 
-from newspaper import Article
+from newspaper import Article, Config
 
 RE = r'''((?:http|https)://(?:[\w_-]+(?:(?:\.[\w_-]+)+))(?:[\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?)'''
 
@@ -16,7 +16,9 @@ RE = r'''((?:http|https)://(?:[\w_-]+(?:(?:\.[\w_-]+)+))(?:[\w.,@?^=%&:/~+#-]*[\
 ALLOWED_DOMAINS = ['af0.net', 'kindle.com']
 
 def fetch_and_format(url, fetch_img=True):
-    art = Article(url)
+    cfg = Config()
+    cfg.keep_article_html = True
+    art = Article(url, config=cfg)
     art.download()
     art.parse()
     # Format text into HTML. This is crappy--it loses things like boldface
@@ -26,7 +28,7 @@ def fetch_and_format(url, fetch_img=True):
     # TODO: Newspaper3k parses the same author multiple times. Fix!
     author = art.authors[0] if art.authors else ''
     publish_date = art.publish_date.strftime('%B %d %Y') if art.publish_date else ''
-    text = u'<p>' + u'</p><p>'.join(art.text.split('\n\n')) + u'</p>'
+    text = art.article_html
     image = ''
     if art.top_img and fetch_img:
         with urllib.request.urlopen(art.top_img) as resp:
