@@ -1,5 +1,5 @@
 #!/bin/bash
-pip install --target ./package -r requirements.txt
+pip3 install --target ./package -r requirements.txt
 cd package
 zip -r9 ${OLDPWD}/function.zip .
 cd $OLDPWD
