@@ -8,8 +8,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from urllib import parse
 
+import tldextract
 from newspaper import Article, Config
-from tld import get_fld
 
 RE = r'''((?:http|https)://(?:[\w_-]+(?:(?:\.[\w_-]+)+))(?:[\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?)'''
 
@@ -27,7 +27,7 @@ def fetch_and_format(url, fetch_img=True):
     # TODO: Newspaper3k parses the same author multiple times. Fix!
     author = art.authors[0] if art.authors else ''
     publish_date = art.publish_date.strftime('%B %d %Y') if art.publish_date else ''
-    source = get_fld(url)  # Is there a better source for this?
+    source = tldextract.extract(url).registered_domain  # Is there a better source for this?
     text = art.article_html
     image = ''
     if art.top_img and fetch_img:
