@@ -1,4 +1,5 @@
 #!/bin/bash
+rm -rf package
 pip3 install --target ./package -r requirements.txt
 cd package
 zip -r9 ${OLDPWD}/function.zip .
