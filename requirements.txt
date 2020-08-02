@@ -1,1 +1,2 @@
 git+git://github.com/danmarg/newspaper.git
+tld

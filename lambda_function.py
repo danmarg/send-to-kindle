@@ -9,6 +9,7 @@ from email.mime.text import MIMEText
 from urllib import parse
 
 from newspaper import Article, Config
+from tld import get_fld
 
 RE = r'''((?:http|https)://(?:[\w_-]+(?:(?:\.[\w_-]+)+))(?:[\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?)'''
 
@@ -22,13 +23,11 @@ def fetch_and_format(url, fetch_img=True):
     art = Article(url, config=cfg)
     art.download()
     art.parse()
-    # Format text into HTML. This is crappy--it loses things like boldface
-    # and italics--and could be replaced with a library that does this
-    # better! Images would also be nice...
     title = art.title
     # TODO: Newspaper3k parses the same author multiple times. Fix!
     author = art.authors[0] if art.authors else ''
     publish_date = art.publish_date.strftime('%B %d %Y') if art.publish_date else ''
+    source = get_fld(url)  # Is there a better source for this?
     text = art.article_html
     image = ''
     if art.top_img and fetch_img:
@@ -51,6 +50,7 @@ def fetch_and_format(url, fetch_img=True):
     <body><div>
     <h1>{title}</h1>
     <h3>{author}</h3>
+    <h4><a href='{url}'>{source}</a></h4>
     <h4>{publish_date}</h4>
     {image}
     {text}
