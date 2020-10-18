@@ -16,9 +16,12 @@ RE = r'''((?:http|https)://(?:[\w_-]+(?:(?:\.[\w_-]+)+))(?:[\w.,@?^=%&:/~+#-]*[\
 # Allow list of manually-sent-to address domains, to avoid being a spam relay.
 ALLOWED_DOMAINS = ['af0.net', 'kindle.com']
 
+USERAGENT  = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+
 def fetch_and_format(url, fetch_img=True):
     cfg = Config()
     cfg.keep_article_html = True
+    cfg.browser_user_agent = USERAGENT
     cfg.drop_text_node = lambda x: x in ('', 'Advertisement', 'advertisement')
     art = Article(url, config=cfg)
     art.download()
@@ -31,15 +34,16 @@ def fetch_and_format(url, fetch_img=True):
     text = art.article_html
     image = ''
     if art.top_img and fetch_img:
-        with urllib.request.urlopen(art.top_img) as resp:
-            try:
+        req = urllib.request.Request(art.top_img, headers={'User-Agent': USERAGENT})
+        try:
+            with urllib.request.urlopen(req) as resp:
                 ctype = resp.headers.get_content_type()
                 ext = ctype.split('/')[1]
                 raw = resp.read()
                 image = '<img src="data:' + ctype + ';base64,' + str(b64encode(raw), 'utf-8') + '"/>'
-            except Exception as e:
-                print(e)
-                pass
+        except Exception as e:
+            print(e)
+            pass
 
     doc = f'''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html>
     <head>
