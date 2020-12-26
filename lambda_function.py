@@ -59,15 +59,6 @@ def fetch_and_format(url, fetch_img=True):
     publish_date = art.publish_date.strftime('%B %d %Y') if art.publish_date else ''
     source = tldextract.extract(url).registered_domain  # Is there a better source for this?
     text = art.article_html
-    # Fetch the "top image" to base64-encoded embedded data.
-    top_image = ''
-    if art.top_img and fetch_img:
-        try:
-            top_image = '<img src="' + fetch_image_to_b64(art.top_img) + '"/>'
-        except Exception as e:
-            # print(e)
-            pass
-
     doc = f'''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html>
     <head>
     <META http-equiv="Content-Type" content="text/html; charset=utf-8">
@@ -79,7 +70,6 @@ def fetch_and_format(url, fetch_img=True):
     <h3>{author}</h3>
     <h4><a href='{url}'>{source}</a></h4>
     <h4>{publish_date}</h4>
-    {top_image}
     {text}
     </body>
     </html>'''
