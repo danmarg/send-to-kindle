@@ -122,7 +122,8 @@ def lambda_handler(event, context):
     if '@' not in dst:
         dst += '@kindle.com'
     elif dst.split('@')[1] not in ALLOWED_DOMAINS:
-        print('Disallowed destionation:\n', body)
+        print('Disallowed destination:\n', body)
+        return
 
     print('Article:', urls[0])
     print('Send to:', dst)
