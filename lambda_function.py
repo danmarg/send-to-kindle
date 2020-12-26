@@ -18,11 +18,27 @@ ALLOWED_DOMAINS = ['af0.net', 'kindle.com']
 
 USERAGENT  = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
 
+def fetch_image_to_b64(url):
+    req = urllib.request.Request(url, headers={'User-Agent': USERAGENT})
+    with urllib.request.urlopen(req) as resp:
+        ctype = resp.headers.get_content_type()
+        ext = ctype.split('/')[1]
+        raw = resp.read()
+        return 'data:' + ctype + ';base64,' + str(b64encode(raw), 'utf-8')
+
 def fetch_and_format(url, fetch_img=True):
     cfg = Config()
     cfg.keep_article_html = True
     cfg.browser_user_agent = USERAGENT
     cfg.drop_text_node = lambda x: x in ('', 'Advertisement', 'advertisement')
+    def transform_img(i):
+        try:
+            i.attrib['src'] = fetch_image_to_b64(i.attrib['src'])
+        except Exception as e:
+            print(e)
+            pass
+    cfg.element_transformers['img'] = transform_img
+
     art = Article(url, config=cfg)
     art.download()
     art.parse()
@@ -32,15 +48,11 @@ def fetch_and_format(url, fetch_img=True):
     publish_date = art.publish_date.strftime('%B %d %Y') if art.publish_date else ''
     source = tldextract.extract(url).registered_domain  # Is there a better source for this?
     text = art.article_html
-    image = ''
+    # Fetch the "top image" to base64-encoded embedded data.
+    top_image = ''
     if art.top_img and fetch_img:
-        req = urllib.request.Request(art.top_img, headers={'User-Agent': USERAGENT})
         try:
-            with urllib.request.urlopen(req) as resp:
-                ctype = resp.headers.get_content_type()
-                ext = ctype.split('/')[1]
-                raw = resp.read()
-                image = '<img src="data:' + ctype + ';base64,' + str(b64encode(raw), 'utf-8') + '"/>'
+            top_image = '<img src="' + fetch_image_to_b64(art.top_img) + '"/>'
         except Exception as e:
             print(e)
             pass
@@ -56,7 +68,7 @@ def fetch_and_format(url, fetch_img=True):
     <h3>{author}</h3>
     <h4><a href='{url}'>{source}</a></h4>
     <h4>{publish_date}</h4>
-    {image}
+    {top_image}
     {text}
     </body>
     </html>'''
