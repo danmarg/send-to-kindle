@@ -35,9 +35,20 @@ def fetch_and_format(url, fetch_img=True):
         try:
             i.attrib['src'] = fetch_image_to_b64(i.attrib['src'])
         except Exception as e:
-            print(e)
+            # print(e)
             pass
     cfg.element_transformers['img'] = transform_img
+    def transform_picture(i):
+        try:
+            img = i.find('img')
+            if img is not None:
+                i.tag = 'img'
+                for k, v in img.items():
+                    i.attrib[k] = v
+        except Exception as e:
+            # print(e)
+            pass
+    cfg.element_transformers['picture'] = transform_picture
 
     art = Article(url, config=cfg)
     art.download()
@@ -54,7 +65,7 @@ def fetch_and_format(url, fetch_img=True):
         try:
             top_image = '<img src="' + fetch_image_to_b64(art.top_img) + '"/>'
         except Exception as e:
-            print(e)
+            # print(e)
             pass
 
     doc = f'''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html>
