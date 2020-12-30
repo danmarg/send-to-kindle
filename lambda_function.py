@@ -78,9 +78,11 @@ def fetch_and_format(url, fetch_img=True):
     return title, doc
 
 def html_as_mime_attachment(title, html):
+    filename = ''.join([c for c in title
+                        if c.isalpha() or c.isdigit() or c in (' ', '_', '-')]).rstrip()
     attach = MIMEText(html, 'html', 'utf-8')
     attach.add_header('Content-Disposition', 'attachment',
-            filename=title + '.html')
+            filename=filename + '.html')
     attach.add_header('Content-Type', 'text/html; charset=UTF-8')
     return attach
 
