@@ -45,6 +45,8 @@ def fetch_and_format(url, fetch_img=True):
                 i.tag = 'img'
                 for k, v in img.items():
                     i.attrib[k] = v
+                if 'src' in i.attrib:
+                    i.attrib['src'] = fetch_image_to_b64(i.attrib['src'])
         except Exception as e:
             # print(e)
             pass
