@@ -15,7 +15,7 @@ from newspaper import Article, Config
 RE = r'''((?:http|https)://(?:[\w_-]+(?:(?:\.[\w_-]+)+))(?:[\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?)'''
 
 # Allow list of manually-sent-to address domains, to avoid being a spam relay.
-ALLOWED_DOMAINS = ['af0.net', 'kindle.com']
+ALLOWED_DOMAINS = ['af0.net', 'kindle.com', 'free.kindle.com']
 
 USERAGENT  = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
 
@@ -49,7 +49,8 @@ def fetch_and_format(url, fetch_img=True):
         except Exception as e:
             # print(e)
             pass
-    cfg.element_transformers['img'] = transform_img
+    if fetch_img:
+        cfg.element_transformers['img'] = transform_img
     def transform_picture(i):
         try:
             img = i.find('img')
@@ -62,7 +63,8 @@ def fetch_and_format(url, fetch_img=True):
         except Exception as e:
             # print(e)
             pass
-    cfg.element_transformers['picture'] = transform_picture
+    if fetch_img:
+        cfg.element_transformers['picture'] = transform_picture
 
     art = Article(url, config=cfg)
     art.download()
@@ -92,12 +94,13 @@ def fetch_and_format(url, fetch_img=True):
 def html_as_mime_attachment(title, html):
     filename = ''.join([c for c in title
                         if c.isalpha() or c.isdigit() or c in (' ', '_', '-')]).rstrip()
-    attach = MIMEText(html, 'html', 'utf-8')
+    attach = MIMEText(html, 'html', 'US-ASCII')
     attach.add_header('Content-Disposition', 'attachment',
             filename=filename + '.html')
+    attach.replace_header('Content-Type', 'text/html; charset="US-ASCII"; name="' + filename + '.html"')
     return attach
 
-def lambda_handler(event=None, context=None, dst=None, urls=[], pdfs=[], do_mail=True):
+def lambda_handler(event=None, context=None, dst=None, urls=[], pdfs=[], do_mail=True, fetch_img=True):
     if event:
         rec = json.loads(event['Records'][0]['Sns']['Message'])
         dst = rec['mail']['destination']
@@ -123,7 +126,7 @@ def lambda_handler(event=None, context=None, dst=None, urls=[], pdfs=[], do_mail
         attach = pdfs
     else:
         subj = ''
-        title, html = fetch_and_format(urls[0])  # Take just the first URL.
+        title, html = fetch_and_format(urls[0], fetch_img=fetch_img)  # Take just the first URL.
         attach = [html_as_mime_attachment(title, html)]
 
     # Get the Kindle destination.
@@ -147,7 +150,6 @@ def lambda_handler(event=None, context=None, dst=None, urls=[], pdfs=[], do_mail
     msg['Subject'] = subj
     msg['From'] = '<kindle@x.af0.net>'
     msg['To'] = dst
-    msg.attach(MIMEText('Multipart message.'))
 
     for a in attach:
       msg.attach(a)
