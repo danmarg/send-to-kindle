@@ -89,15 +89,15 @@ def fetch_and_format(url, fetch_img=True):
     {text}
     </body>
     </html>'''
-    return art.title, doc
+    return title, doc
 
 def html_as_mime_attachment(title, html):
-    filename = ''.join([c for c in title
-                        if c.isalpha() or c.isdigit() or c in (' ', '_', '-')]).rstrip()
-    attach = MIMEText(html, 'html', 'US-ASCII')
+    html = html.encode('utf-8')
+    filename = title
+    attach = MIMEText(html, 'html', 'utf-8')
     attach.add_header('Content-Disposition', 'attachment',
             filename=filename + '.html')
-    attach.replace_header('Content-Type', 'text/html; charset="US-ASCII"; name="' + filename + '.html"')
+    attach.replace_header('Content-Type', 'text/html; charset="UTF-8"; name="' + filename + '.html"')
     return attach
 
 def lambda_handler(event=None, context=None, dst=None, urls=[], pdfs=[], do_mail=True, fetch_img=True):
