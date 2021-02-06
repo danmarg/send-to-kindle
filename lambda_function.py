@@ -77,6 +77,7 @@ def fetch_and_format(url, fetch_img=True):
     text = art.article_html
     doc = f'''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html>
     <head>
+    <title>{title}</title>
     <META http-equiv="Content-Type" content="text/html; charset=utf-8">
     <META name="author" content="{author}">
     <META name="title" content="{title}">
@@ -144,6 +145,7 @@ def lambda_handler(event=None, context=None, dst=None, urls=[], pdfs=[], do_mail
         return
 
     print('Article:', urls[0])
+    urls = []  # XXX: Is this somehow an issue?
     print('Send to:', dst)
 
     msg = MIMEMultipart('mixed')
