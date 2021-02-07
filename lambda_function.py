@@ -103,6 +103,8 @@ def html_as_mime_attachment(title, html):
 
 def lambda_handler(event=None, context=None, dst=None, urls=[], pdfs=[], do_mail=True, fetch_img=True):
     if event:
+        urls = []
+        pdfs = []
         rec = json.loads(event['Records'][0]['Sns']['Message'])
         dst = rec['mail']['destination']
         headers = rec['mail']['headers']
@@ -145,7 +147,6 @@ def lambda_handler(event=None, context=None, dst=None, urls=[], pdfs=[], do_mail
         return
 
     print('Article:', urls[0])
-    urls = []  # XXX: Is this somehow an issue?
     print('Send to:', dst)
 
     msg = MIMEMultipart('mixed')
