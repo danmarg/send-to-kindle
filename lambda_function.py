@@ -11,7 +11,9 @@ from urllib import parse
 import tldextract
 from newspaper import Article, Config
 
-RE = r'''((?:http|https)://(?:[\w_-]+(?:(?:\.[\w_-]+)+))(?:[\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?)'''
+RE = r.compile(
+    r'''((?:http|https)://(?:[\w_-]+(?:(?:\.[\w_-]+)+))(?:[\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?)''',
+    re.MULTILINE)
 
 # Allow list of manually-sent-to address domains, to avoid being a spam relay.
 ALLOWED_DOMAINS = ['af0.net', 'kindle.com']
@@ -97,7 +99,7 @@ def lambda_handler(event, context):
     pdfs = []
     for part in msg.walk():
         if part.get_content_type() == 'text/plain':
-            urls += re.findall(RE, part.as_string())
+            urls += RE.findall(part.as_string())
         elif part.get_content_type() == 'application/pdf':
             pdfs.append(part)
 
