@@ -6,6 +6,7 @@ import urllib
 from base64 import b64encode, b64decode
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html.entities import codepoint2name
 from urllib import parse
 
 import tldextract
@@ -16,9 +17,20 @@ RE = r.compile(
     re.MULTILINE)
 
 # Allow list of manually-sent-to address domains, to avoid being a spam relay.
-ALLOWED_DOMAINS = ['af0.net', 'kindle.com']
+ALLOWED_DOMAINS = ['af0.net', 'kindle.com', 'free.kindle.com']
 
 USERAGENT  = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+
+
+def decode_to_entity(s):
+    t = ''
+    for i in s:
+        if ord(i) in codepoint2name:
+            name = codepoint2name.get(ord(i))
+            t += '&' + name + ';'
+        else:
+            t += i
+    return t
 
 def fetch_image_to_b64(url):
     req = urllib.request.Request(url, headers={'User-Agent': USERAGENT})
@@ -39,7 +51,8 @@ def fetch_and_format(url, fetch_img=True):
         except Exception as e:
             # print(e)
             pass
-    cfg.element_transformers['img'] = transform_img
+    if fetch_img:
+        cfg.element_transformers['img'] = transform_img
     def transform_picture(i):
         try:
             img = i.find('img')
@@ -52,12 +65,13 @@ def fetch_and_format(url, fetch_img=True):
         except Exception as e:
             # print(e)
             pass
-    cfg.element_transformers['picture'] = transform_picture
+    if fetch_img:
+        cfg.element_transformers['picture'] = transform_picture
 
     art = Article(url, config=cfg)
     art.download()
     art.parse()
-    title = art.title
+    title = decode_to_entity(art.title)
     # TODO: Newspaper3k parses the same author multiple times. Fix!
     author = art.authors[0] if art.authors else ''
     publish_date = art.publish_date.strftime('%B %d %Y') if art.publish_date else ''
@@ -65,6 +79,7 @@ def fetch_and_format(url, fetch_img=True):
     text = art.article_html
     doc = f'''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html>
     <head>
+    <title>{title}</title>
     <META http-equiv="Content-Type" content="text/html; charset=utf-8">
     <META name="author" content="{author}">
     <META name="title" content="{title}">
@@ -80,28 +95,29 @@ def fetch_and_format(url, fetch_img=True):
     return title, doc
 
 def html_as_mime_attachment(title, html):
-    filename = ''.join([c for c in title
-                        if c.isalpha() or c.isdigit() or c in (' ', '_', '-')]).rstrip()
+    html = html.encode('utf-8')
+    filename = title
     attach = MIMEText(html, 'html', 'utf-8')
     attach.add_header('Content-Disposition', 'attachment',
             filename=filename + '.html')
-    attach.add_header('Content-Type', 'text/html; charset=UTF-8')
+    attach.replace_header('Content-Type', 'text/html; charset="UTF-8"; name="' + filename + '.html"')
     return attach
 
-def lambda_handler(event, context):
-    rec = json.loads(event['Records'][0]['Sns']['Message'])
-    dst = rec['mail']['destination']
-    headers = rec['mail']['headers']
-    body = b64decode(rec['content'])
-    msg = email.message_from_bytes(body)
+def lambda_handler(event=None, context=None, dst=None, urls=[], pdfs=[], do_mail=True, fetch_img=True):
+    if event:
+        urls = []
+        pdfs = []
+        rec = json.loads(event['Records'][0]['Sns']['Message'])
+        dst = rec['mail']['destination']
+        headers = rec['mail']['headers']
+        body = b64decode(rec['content'])
+        msg = email.message_from_bytes(body)
 
-    urls = []
-    pdfs = []
-    for part in msg.walk():
-        if part.get_content_type() == 'text/plain':
-            urls += RE.findall(part.as_string())
-        elif part.get_content_type() == 'application/pdf':
-            pdfs.append(part)
+        for part in msg.walk():
+            if part.get_content_type() == 'text/plain':
+                urls += RE.findall(part.as_string())
+            elif part.get_content_type() == 'application/pdf':
+                pdfs.append(part)
 
     if not urls and not pdfs:
         print('No URLs or PDFs!')
@@ -115,7 +131,7 @@ def lambda_handler(event, context):
         attach = pdfs
     else:
         subj = ''
-        title, html = fetch_and_format(urls[0])  # Take just the first URL.
+        title, html = fetch_and_format(urls[0], fetch_img=fetch_img)  # Take just the first URL.
         attach = [html_as_mime_attachment(title, html)]
 
     # Get the Kindle destination.
@@ -135,14 +151,17 @@ def lambda_handler(event, context):
     print('Article:', urls[0])
     print('Send to:', dst)
 
-    msg = MIMEMultipart('related')
+    msg = MIMEMultipart('mixed')
     msg['Subject'] = subj
     msg['From'] = '<kindle@x.af0.net>'
     msg['To'] = dst
-    msg.preamble = 'Multipart message.\n'
+
     for a in attach:
       msg.attach(a)
 
+    if not do_mail:
+        print(msg)
+        return
 
     client = boto3.client('ses' )    
 
