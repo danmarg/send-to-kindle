@@ -1,2 +1,3 @@
 git+git://github.com/danmarg/newspaper.git
 tldextract
+boto3

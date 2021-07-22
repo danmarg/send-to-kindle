@@ -12,7 +12,7 @@ from urllib import parse
 import tldextract
 from newspaper import Article, Config
 
-RE = r.compile(
+RE = re.compile(
     r'''((?:http|https)://(?:[\w_-]+(?:(?:\.[\w_-]+)+))(?:[\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?)''',
     re.MULTILINE)
 
