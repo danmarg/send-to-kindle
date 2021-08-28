@@ -100,7 +100,7 @@ def html_as_mime_attachment(title, html):
     attach = MIMEText(html, 'html', 'utf-8')
     attach.add_header('Content-Disposition', 'attachment',
             filename=filename + '.html')
-    attach.replace_header('Content-Type', 'text/html; charset="UTF-8"; name="' + filename + '.html"')
+    attach.replace_header('Content-Type', 'text/html; charset="UTF-8"; name="file.html"')
     return attach
 
 def lambda_handler(event=None, context=None, dst=None, urls=[], pdfs=[], do_mail=True, fetch_img=True):
